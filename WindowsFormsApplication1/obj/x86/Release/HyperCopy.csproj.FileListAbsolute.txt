@@ -1,5 +1,0 @@
-C:\Users\IMC\Documents\Visual Studio 2010\Projects\HyperCopy\WindowsFormsApplication1\bin\Release\HyperMove.exe.config
-C:\Users\IMC\Documents\Visual Studio 2010\Projects\HyperCopy\WindowsFormsApplication1\obj\x86\Release\Interop.IWshRuntimeLibrary.dll
-C:\Users\IMC\Documents\Visual Studio 2010\Projects\HyperCopy\WindowsFormsApplication1\obj\x86\Release\HyperCopy.csproj.ResolveComReference.cache
-C:\Users\IMC\Documents\Visual Studio 2010\Projects\HyperCopy\WindowsFormsApplication1\obj\x86\Release\HyperMove.exe
-C:\Users\IMC\Documents\Visual Studio 2010\Projects\HyperCopy\WindowsFormsApplication1\obj\x86\Release\HyperMove.pdb
