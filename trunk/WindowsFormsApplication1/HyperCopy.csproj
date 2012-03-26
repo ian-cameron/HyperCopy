@@ -8,8 +8,8 @@
     <ProjectGuid>{B96B6ABB-B7B0-4AEA-B942-0F37D6525777}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>HyperMove</RootNamespace>
-    <AssemblyName>HyperMove</AssemblyName>
+    <RootNamespace>HyperCopy</RootNamespace>
+    <AssemblyName>HyperCopy</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>

@@ -20,6 +20,7 @@ namespace WindowsFormsApplication1
         private FolderBrowserDialog FileBrowser2 = new FolderBrowserDialog();
         private long bytes = 0;
         private bool stoploop = false;
+        private bool exclude2;
         private string[] exts; 
         private string[] folderexts;
         private string sourcedir;
@@ -71,7 +72,6 @@ namespace WindowsFormsApplication1
             totalitems = 0;
             stoploop = false;
             buttonCSV.Visible = false;
-            buttonRun.Visible = false;
             buttonRun.Enabled = false;
             labelStatus.Text = "";
             listView1.View = View.Details;
@@ -135,7 +135,7 @@ namespace WindowsFormsApplication1
                 td = dest.FullName;
                 if (source.Root.Name == source.Name)
                     td = td+ "\\";
-                if (!System.IO.Directory.Exists(sourcedir))
+                if (!source.Exists)
                 {
                     throw new ArgumentException();
                 }
@@ -147,7 +147,7 @@ namespace WindowsFormsApplication1
             catch (ArgumentException ae)
             { MessageBox.Show("Need a valid path: " + sourcedir + " " + ae.Message.ToString()); return; }
 
-
+            exclude2 = checkBoxExclude2.Checked;
             if (!checkBoxSubFolders.Checked)
                 so = SearchOption.TopDirectoryOnly;
             else
@@ -158,6 +158,7 @@ namespace WindowsFormsApplication1
             {
                 listBox1.Items.Clear();
                 buttonCancel.Visible = true;
+                progressBar1.Visible = true;
                 bw.RunWorkerAsync();
             }
 
@@ -182,9 +183,11 @@ namespace WindowsFormsApplication1
                 while (dirs.Count > 0)
                 {
                     string currentDir = dirs.Pop();
+                    string[] files = { };
                     try
                     {
                         subDirs = System.IO.Directory.GetDirectories(currentDir);
+                        files = System.IO.Directory.GetFiles(currentDir);
                     }
                     catch (DirectoryNotFoundException dnfe)
                     { MessageBox.Show("Path not found: " + dnfe.Message.ToString()); continue; }
@@ -192,31 +195,17 @@ namespace WindowsFormsApplication1
                     { addMessage( "Check Permissions: " + uae.Message.ToString()); continue; }
                     catch (ArgumentException ae)
                     { addMessage("Need a valid path: " + ae.Message.ToString()); continue; }
+                    catch (NullReferenceException nr)
+                    { addMessage("Null Reference: " + nr.Message.ToString()); }
                     catch (Exception ge)
                     { addMessage("Unknown exception: " + ge.Message); continue; }
 
-                    string[] files = null;
                     stoploop = false;
-                    bw.ReportProgress(0, currentDir);
-                    try
-                    {
-                        files = System.IO.Directory.GetFiles(currentDir);
-                    }
-                    catch (DirectoryNotFoundException dnfe)
-                    { addMessage("Path not found: " + dnfe.Message.ToString()); }
-                    catch (UnauthorizedAccessException uae)
-                    { addMessage("Check Permissions: " + uae.Message.ToString()); }
-                    catch (ArgumentException ae)
-                    { addMessage("Need a valid path: " + ae.Message.ToString()); }
-                    catch (NullReferenceException nr)
-                    { addMessage("Null Reference: "+ nr.Message.ToString()); }
                     // Perform the required action on each file here.
-                    // Modify this block to perform your required task.
                     try
                     {
                         foreach (string f in files)
                         {
-
                             foreach (string ext in exts)
                             {
                                 if (f.EndsWith("." + ext))
@@ -226,7 +215,7 @@ namespace WindowsFormsApplication1
                                         FileInfo file = new FileInfo(f);
                                         string target = (td + currentDir.Replace(sourcedir, ""));
                                         bytes += file.Length;
-                                        string[] subitems = { file.Name, currentDir, (file.Length / 1024).ToString(), file.LastWriteTime.ToShortDateString(), target.ToString()};
+                                        string[] subitems = { file.Name, currentDir, (file.Length / 1024).ToString(), file.LastWriteTime.ToLongDateString(), target.ToString() };
                                         ListViewItem item = new ListViewItem(subitems);
                                         item.Checked = true;
                                         addToList(item);
@@ -235,11 +224,12 @@ namespace WindowsFormsApplication1
                                     catch (PathTooLongException ptl)
                                     {
                                         logger.Error("Path too long! " + f);
-                                            addMessage(f + "\n" + ptl.Message.ToString());
+                                        addMessage(f + " " + ptl.Message.ToString());
                                     }
 
                                 }
                             }
+                            //check for extension that move the entire folder
                             foreach (string b in folderexts)
                             {
                                 if (stoploop)
@@ -247,22 +237,36 @@ namespace WindowsFormsApplication1
                                 if (f.EndsWith("." + b))
                                 {
                                     long dirbytes = 0;
-                                    foreach (FileInfo g in new DirectoryInfo(currentDir).EnumerateFiles("*", so))
+                                    int diritems = 0;
+                                    DirectoryInfo cd = new DirectoryInfo(currentDir);
+                                    string parentd = "null";
+                                    string gparentd = "null";
+                                    if (cd.Parent.Exists)
                                     {
-                                        dirbytes += g.Length;
-                                        totalitems++;
+                                        parentd = cd.Parent.FullName;
+                                        if (cd.Parent.Parent != null)
+                                            gparentd = cd.Parent.Parent.FullName;
                                     }
-                                    string target = td + currentDir.Replace(sourcedir, "");
-                                    bytes += dirbytes;
-                                    string[] subitems = { "Entire Folder:", currentDir, (dirbytes / 1024).ToString(), System.IO.Directory.GetLastWriteTime(currentDir).ToShortDateString(), target};
-                                    ListViewItem item = new ListViewItem(subitems);
-                                    item.Checked = true;
-                                    item.BackColor = Color.AliceBlue;
-                                    addToList(item);
-                                    totalitems++;
-                                    bw.ReportProgress(0, currentDir);
-                                    //since being here in got all the files on any match...
-                                    stoploop = true;
+                                    if (parentd != sourcedir && gparentd != sourcedir && cd.FullName != sourcedir || !exclude2)
+                                    {
+                                        foreach (FileInfo g in cd.EnumerateFiles("*", so))
+                                        {
+                                            dirbytes += g.Length;
+                                            totalitems++;
+                                            diritems++;
+                                        }
+                                        string target = td + currentDir.Replace(sourcedir, "");
+                                        bytes += dirbytes;
+                                        string[] subitems = { "Entire Folder: (" + diritems + " items)", currentDir, (dirbytes / 1024).ToString(), cd.LastWriteTime.ToLongDateString(), target };
+                                        ListViewItem item = new ListViewItem(subitems);
+                                        item.Checked = true;
+                                        item.BackColor = Color.AliceBlue;
+                                        addToList(item);
+                                        totalitems++;
+                                        bw.ReportProgress(dirs.Count + subDirs.Length, currentDir);
+                                        //since being here in got all the files on any match...
+                                        stoploop = true;
+                                    }
                                 }
                             }
 
@@ -273,17 +277,20 @@ namespace WindowsFormsApplication1
                         // If file was deleted by a separate application
                         //  or thread since the call 
                         // then just continue.
-                        addMessage("File not found! "+z.ToString());
+                        addMessage("File not found! " + z.ToString());
                         logger.Error(z.Message);
                         continue;
                     }
                     catch (NullReferenceException ne)
                     {
-                        addMessage("Null Reference: "+ne.Message);
+                        addMessage("Null Reference: " + ne.Message);
                         logger.Error(ne.Message);
                         continue;
                     }
-
+                    catch (UnauthorizedAccessException uae)
+                    {
+                        addMessage("Check Permissions: " + uae.Message);
+                    }
                     if (bw.CancellationPending)
                     {
                         e.Cancel = true;
@@ -316,6 +323,7 @@ namespace WindowsFormsApplication1
             if (seconds != System.DateTime.Now.Second)
             {
                 this.labelStatus.Text = "Found " + totalitems + " items totaling " + bytes/1024 + " Kbytes so far. \nNow searching: "+e.UserState.ToString();
+                progressBar1.Value = e.ProgressPercentage%101;
                 seconds = System.DateTime.Now.Second;
             }    
         }
@@ -323,12 +331,13 @@ namespace WindowsFormsApplication1
         private void bw_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             buttonCancel.Visible = false;
-            buttonRun.Visible = true;
+            progressBar1.Visible = false;
+            buttonRun.Enabled = true;
             buttonRun.Enabled = true;
             labelStatus.Text = "";
             if ((e.Cancelled == true))
             {   
-                addMessage("Canceled! " + System.DateTime.Now.ToShortTimeString());
+                addMessage("Canceled! " + System.DateTime.Now.ToLongTimeString());
             }
 
             else if (!(e.Error == null))
@@ -339,8 +348,6 @@ namespace WindowsFormsApplication1
             else
             {
                 addMessage("Complete.");
-                this.buttonRun.Visible = true;
-                this.buttonRun.Enabled = true;
             }
             foreach (ListViewItem kb in listView1.Items)
                 finalsize += Int32.Parse(kb.SubItems[2].Text);
@@ -393,7 +400,7 @@ namespace WindowsFormsApplication1
                     FileInfo targetfile;
                     FileInfo sourcefile;
                     //directory copy   
-                    if (fn == "Entire Folder:")
+                    if (fn.StartsWith("Entire Folder:"))
                     {
                         if (!target.Exists)
                             try { target.Create(); }
@@ -416,6 +423,14 @@ namespace WindowsFormsApplication1
                         foreach (FileInfo s in sourcefiles.GetFiles("*", so))
                         {
                             targetfile = new FileInfo(target.FullName + "\\" + s.FullName.Replace(sd, ""));
+                            if (!targetfile.Directory.Exists)
+                                try { targetfile.Directory.Create(); }
+                                catch (UnauthorizedAccessException ex)
+                                {
+                                    addMessage("Unable to create: " + targetfile.Directory + ex.ToString());
+                                    logger.Error(ex.Message);
+                                    continue;
+                                }
                             movedsub++;
                             try
                             {
@@ -452,8 +467,8 @@ namespace WindowsFormsApplication1
                         }
                         if (createshortcut)
                         {
-                            MyShortcut = (IWshRuntimeLibrary.IWshShortcut)MyShell.CreateShortcut(sd + ".lnk");
-                            MyShortcut.TargetPath = targetfile.Directory.ToString();
+                            MyShortcut = (IWshRuntimeLibrary.IWshShortcut)MyShell.CreateShortcut(sourcefiles.FullName + ".lnk");
+                            MyShortcut.TargetPath = target.FullName.ToString();
                             try
                             {
                                 MyShortcut.Save();
@@ -557,13 +572,14 @@ namespace WindowsFormsApplication1
                         }
                     }
                 }
-                addMessage("Completed!  See log file in " + Application.StartupPath);
+                addMessage("Completed " + System.DateTime.Now.ToLongTimeString());
+                addMessage("*See detailed log file in " + Application.StartupPath);
             }
         }
 
         private void bwMove_ProgressChanged(object sender, ProgressChangedEventArgs e) 
         {
-            if (seconds+2000000 <= System.DateTime.Now.Ticks)
+            if (seconds+1500000 <= System.DateTime.Now.Ticks)
             {
                 this.labelStatus.Text = e.UserState.ToString();
                 progressBar1.Value = e.ProgressPercentage;
@@ -623,9 +639,9 @@ namespace WindowsFormsApplication1
             if (bwMove.WorkerSupportsCancellation==true)
             {
                 bwMove.CancelAsync();
-                addMessage("User Cancelled!");
+                addMessage("User Cancelled! "+System.DateTime.Now.ToLongTimeString());
                 logger.Error("User cancelled file copying operations with the Cancel button");
-                buttonRun.Visible = true;
+                buttonRun.Enabled = true;
             }
         }
 
@@ -645,9 +661,8 @@ namespace WindowsFormsApplication1
             }
             overwrite = checkBoxOverwrite.Checked;
             overwritenewer = checkBoxOverwriteNewer.Checked;
-            listBox1.ResetText();
+            addMessage("Action started "+System.DateTime.Now.ToLongTimeString());
             long totalsize = 0;
-            listBox1.Items.Clear();
             addMessage("Calculating space required...");
             foreach (ListViewItem i in listView1.Items)
             {
@@ -658,8 +673,10 @@ namespace WindowsFormsApplication1
             if (!(t.AvailableFreeSpace >= totalsize * 1024))
                 {
                     MessageBox.Show("Not enough space on destination drive, please create space or reduce the number of files to copy. (" + t.AvailableFreeSpace.ToString() + " bytes free on "+t.Name+")");
+                    addMessage("Not enough space on destination drive, please create space or reduce the number of files to copy. (" + t.AvailableFreeSpace.ToString() + " bytes free on "+t.Name+")");
                     return;
                 }
+            addMessage(totalsize+" required, "+t.AvailableFreeSpace/1024+" available on "+t.RootDirectory.Name);
             DialogResult result = MessageBox.Show("This will start moving "+totalsize+"Kb of files and may take a long time to complete. Are you sure?", "Yes", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
             if (result == DialogResult.OK)
             {
@@ -673,10 +690,10 @@ namespace WindowsFormsApplication1
                         lv.Add(i);
                     }
                     addMessage("Starting to " + comboBoxOptions.SelectedItem.ToString());
+                    progressBar1.Visible = true;
                     bwMove.RunWorkerAsync(lv);
                 }
             }
-            progressBar1.Visible = true;
         }
 
         private void checkBoxOverwrite_CheckedChanged(object sender, EventArgs e)
@@ -689,6 +706,30 @@ namespace WindowsFormsApplication1
                 checkBoxOverwriteNewer.Visible = false;
                 checkBoxOverwriteNewer.Checked = false;
             }
+        }
+
+        private void textBoxDir2_TextChanged(object sender, EventArgs e)
+        {
+            if (buttonRun.Enabled == true)
+            {
+                //MessageBox.Show("Changing the target directory requires you to simulate again to update the list.  Clicking Run will still copy to location displayed in the list!");
+            }
+        }
+
+        public void CopyListBoxToClipboard()
+        {
+            ListBox lb = listBox1;
+            StringBuilder buffer = new StringBuilder();
+            for (int i = 0; i < lb.Items.Count; i++)
+            {
+                buffer.AppendLine(lb.Items[i].ToString());
+            }
+            Clipboard.SetText(buffer.ToString());
+        }
+
+        private void Lis(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            CopyListBoxToClipboard();
         }
 
         public static void ListViewToCSV(ListView listView, string filePath, bool includeHidden)
@@ -719,19 +760,8 @@ namespace WindowsFormsApplication1
                 result.Append(String.Format("\"{0}\"", columnValue(i)));
             }
             result.AppendLine();
-        }
-
-        private void textBoxDir2_TextChanged(object sender, EventArgs e)
-        {
-            if (buttonRun.Visible==true)
-            {
-                //MessageBox.Show("Changing the target directory requires you to simulate again to update the list.  Clicking Run will still copy to location displayed in the list!");
-            }
-        }
-            
-    }
-
-           
+        }            
+    }  
 }
     
 

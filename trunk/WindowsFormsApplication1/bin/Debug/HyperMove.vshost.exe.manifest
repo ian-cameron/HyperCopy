@@ -42,14 +42,14 @@
     </dependentAssembly>
   </dependency>
   <dependency>
-    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="HyperMove.exe" size="39936">
+    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="HyperMove.exe" size="40960">
       <assemblyIdentity name="HyperMove" version="1.0.0.0" language="neutral" processorArchitecture="x86" />
       <hash>
         <dsig:Transforms>
           <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
         </dsig:Transforms>
         <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" />
-        <dsig:DigestValue>ExPAAh9Qk5VxRegiQ03Zn5R6S10=</dsig:DigestValue>
+        <dsig:DigestValue>V5nohSD2pV3gocsNo8145Eh4sT4=</dsig:DigestValue>
       </hash>
     </dependentAssembly>
   </dependency>
