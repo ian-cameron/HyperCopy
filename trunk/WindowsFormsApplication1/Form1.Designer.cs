@@ -126,7 +126,7 @@
             this.checkBoxOverwrite.AutoSize = true;
             this.checkBoxOverwrite.Checked = true;
             this.checkBoxOverwrite.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkBoxOverwrite.Location = new System.Drawing.Point(18, 412);
+            this.checkBoxOverwrite.Location = new System.Drawing.Point(17, 400);
             this.checkBoxOverwrite.Name = "checkBoxOverwrite";
             this.checkBoxOverwrite.Size = new System.Drawing.Size(178, 21);
             this.checkBoxOverwrite.TabIndex = 7;
@@ -239,7 +239,7 @@
             "Move files and folders; do not create a shortcut.",
             "Copy files and folders; create a shortcut (.lnk) at original location.",
             "Copy files and folders; do not create a shortcut."});
-            this.comboBoxOptions.Location = new System.Drawing.Point(13, 382);
+            this.comboBoxOptions.Location = new System.Drawing.Point(12, 370);
             this.comboBoxOptions.Name = "comboBoxOptions";
             this.comboBoxOptions.Size = new System.Drawing.Size(381, 24);
             this.comboBoxOptions.TabIndex = 10;
@@ -248,7 +248,7 @@
             // 
             this.labelOptions.AutoSize = true;
             this.labelOptions.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.labelOptions.Location = new System.Drawing.Point(13, 359);
+            this.labelOptions.Location = new System.Drawing.Point(12, 347);
             this.labelOptions.Name = "labelOptions";
             this.labelOptions.Size = new System.Drawing.Size(58, 17);
             this.labelOptions.TabIndex = 15;
@@ -299,7 +299,7 @@
             // checkBoxOverwriteNewer
             // 
             this.checkBoxOverwriteNewer.AutoSize = true;
-            this.checkBoxOverwriteNewer.Location = new System.Drawing.Point(213, 412);
+            this.checkBoxOverwriteNewer.Location = new System.Drawing.Point(212, 400);
             this.checkBoxOverwriteNewer.Name = "checkBoxOverwriteNewer";
             this.checkBoxOverwriteNewer.Size = new System.Drawing.Size(178, 21);
             this.checkBoxOverwriteNewer.TabIndex = 23;
@@ -382,9 +382,9 @@
             this.checkBoxExclude2.CheckState = System.Windows.Forms.CheckState.Checked;
             this.checkBoxExclude2.Location = new System.Drawing.Point(115, 296);
             this.checkBoxExclude2.Name = "checkBoxExclude2";
-            this.checkBoxExclude2.Size = new System.Drawing.Size(252, 21);
+            this.checkBoxExclude2.Size = new System.Drawing.Size(220, 21);
             this.checkBoxExclude2.TabIndex = 31;
-            this.checkBoxExclude2.Text = "excluding folders on first two levels.";
+            this.checkBoxExclude2.Text = "excluding folders on first level.";
             this.checkBoxExclude2.UseVisualStyleBackColor = true;
             // 
             // HyperCopy

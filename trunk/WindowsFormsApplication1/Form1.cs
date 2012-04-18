@@ -36,6 +36,7 @@ namespace WindowsFormsApplication1
         private bool optionalcopy = false;
         private bool overwrite;
         private bool overwritenewer;
+
         
         public HyperCopy()
         {
@@ -208,7 +209,7 @@ namespace WindowsFormsApplication1
                         {
                             foreach (string ext in exts)
                             {
-                                if (f.EndsWith("." + ext))
+                                if (f.EndsWith("." + ext, true, null))
                                 {
                                     try
                                     {
@@ -234,7 +235,7 @@ namespace WindowsFormsApplication1
                             {
                                 if (stoploop)
                                     continue;
-                                if (f.EndsWith("." + b))
+                                if (f.EndsWith("." + b, true, null))
                                 {
                                     long dirbytes = 0;
                                     int diritems = 0;
@@ -247,13 +248,19 @@ namespace WindowsFormsApplication1
                                         if (cd.Parent.Parent != null)
                                             gparentd = cd.Parent.Parent.FullName;
                                     }
-                                    if (parentd != sourcedir && gparentd != sourcedir && cd.FullName != sourcedir || !exclude2)
+                                    if (parentd != sourcedir /*&& gparentd != sourcedir*/ && cd.FullName != sourcedir || !exclude2)
                                     {
                                         foreach (FileInfo g in cd.EnumerateFiles("*", so))
                                         {
                                             dirbytes += g.Length;
                                             totalitems++;
                                             diritems++;
+                                            if (g.FullName.Length >= 260)
+                                            {
+                                                //throw new PathTooLongException("We have a problem with the path too long: " + g.FullName);
+                                                addMessage("We have a problem with the path too long: " + g.FullName);
+                                                logger.Error("Path over 260 limit " + g.FullName);
+                                            }
                                         }
                                         string target = td + currentDir.Replace(sourcedir, "");
                                         bytes += dirbytes;
@@ -299,7 +306,7 @@ namespace WindowsFormsApplication1
 
 
                     // Push the subdirectories onto the stack for traversal.
-                    // This could also be done before handing the files.
+                    // This could also be done before handling the files.
                     if (so == SearchOption.AllDirectories)
                     {
                         foreach (string str in subDirs)
@@ -422,15 +429,34 @@ namespace WindowsFormsApplication1
                         }
                         foreach (FileInfo s in sourcefiles.GetFiles("*", so))
                         {
-                            targetfile = new FileInfo(target.FullName + "\\" + s.FullName.Replace(sd, ""));
-                            if (!targetfile.Directory.Exists)
-                                try { targetfile.Directory.Create(); }
-                                catch (UnauthorizedAccessException ex)
-                                {
-                                    addMessage("Unable to create: " + targetfile.Directory + ex.ToString());
-                                    logger.Error(ex.Message);
-                                    continue;
-                                }
+                            try { targetfile = new FileInfo(target.FullName + "\\" + s.FullName.Replace(sd, "")); }
+                            catch (System.IO.PathTooLongException ptle)
+                            {
+                                addMessage("The destination path is too long: " + target.FullName + "\\" + s.FullName.Replace(sd, ""));
+                                logger.Error("Path too long: " + target.FullName + "\\" + s.FullName.Replace(sd, "") + ptle.Message);
+                                continue;
+                            }
+                            catch (Exception ex)
+                            {
+                                addMessage("Exception getting file from subfolder: " + target.FullName + "\\" + s.FullName.Replace(sd, "") + " " + ex.Message);
+                            }
+                            try
+                            {
+                                if (!targetfile.Directory.Exists)
+                                    targetfile.Directory.Create();
+                            }
+                            catch (IOException ex)
+                            {
+                                addMessage("Unable to access: " + targetfile.Directory + ex.ToString());
+                                logger.Error(ex.Message);
+                                continue;
+                            }
+                            catch (System.Security.SecurityException se)
+                            {
+                                addMessage("Unable to access: " + targetfile.Directory + se.ToString());
+                                logger.Error("Security Exception: " + targetfile.Directory + " " + se.Message);
+                            }
+
                             movedsub++;
                             try
                             {
@@ -445,9 +471,22 @@ namespace WindowsFormsApplication1
                             catch (Win32Exception a)
                             {
                                 addMessage("Could not copy: " + s.FullName + a.Message);
-                                logger.Error(s.FullName+ " " +a.Message);
+                                logger.Error(s.FullName + " " + a.Message);
                                 continue;
                             }
+                            catch (PathTooLongException ptle)
+                            {
+                                addMessage("The destination path is too long: " + target.FullName + "\\" + s.FullName.Replace(sd, ""));
+                                logger.Error("Path too long: " + target.FullName + "\\" + s.FullName.Replace(sd, "") + ptle.Message);
+                                continue;
+                            }
+                            catch (Exception ex)
+                            {
+                                addMessage("Error: " + target.FullName + "\\" + s.FullName.Replace(sd, ""));
+                                logger.Error("Unknown Error " + target.FullName + "\\" + s.FullName.Replace(sd, "") + ex.Message);
+                                continue;
+                            }
+
                             logger.Info("Copied file to " + targetfile.FullName + " - (" + size + " KB)");
                             if (!optionalcopy)
                             {
@@ -461,41 +500,66 @@ namespace WindowsFormsApplication1
                                     addMessage("Permission denied deleting file " + uae.Message);
                                     logger.Error("Permission denied deleting file " + uae.Message);
                                 }
+                                catch (IOException eio)
+                                {
+                                    addMessage("IO exception deleting: " + target.FullName + "\\" + s.FullName.Replace(sd, ""));
+                                    logger.Error("IO exception deleting: " + target.FullName + "\\" + s.FullName.Replace(sd, "") + eio.Message);
+                                    continue;
+                                }
+                                catch (System.Security.SecurityException se)
+                                {
+                                    addMessage("Security Exception while Deleting: " + s.FullName);
+                                    logger.Error("Security Exception: " + s.FullName + " " + se.Message);
+                                    continue;
+                                }
                             }
 
 
                         }
                         if (createshortcut)
                         {
-                            MyShortcut = (IWshRuntimeLibrary.IWshShortcut)MyShell.CreateShortcut(sourcefiles.FullName + ".lnk");
-                            MyShortcut.TargetPath = target.FullName.ToString();
-                            try
+                            
+                            if (sourcefiles.Exists)
                             {
-                                MyShortcut.Save();
+                                MyShortcut = (IWshRuntimeLibrary.IWshShortcut)MyShell.CreateShortcut(sourcefiles.FullName + ".lnk");
+                                MyShortcut.TargetPath = target.FullName.ToString();
+                                try
+                                {
+                                    MyShortcut.Save();
+                                }
+                                catch (Exception ex)
+                                {
+                                    addMessage("Error creating shortcut: " + ex.Message);
+                                    logger.Error("Error creating shortcut: " + ex.Message);
+                                    continue;
+                                }
+                                logger.Info("Created shortcut: " + MyShortcut.FullName.ToString());
                             }
-                            catch (Exception ex)
-                            {
-                                addMessage("Error creating shortcut: " + ex.Message);
-                                logger.Error("Error creating shortcut: " + ex.Message);
-                            }
-                            logger.Info("Created shortcut " + MyShortcut.FullName.ToString());
+                            else
+                                logger.Warn("Does not exist, cannot create shorcut:" + sourcefiles.FullName);
                             if (so == SearchOption.AllDirectories)
                             {
                                 DirectoryInfo d = new DirectoryInfo(sd);
-                                logger.Info("Deleting directory... " + d.FullName + " - (" + size + " KB)");
+                                logger.Info("Deleting directory (recursively): " + d.FullName + " - (" + size + " KB)");
                                 try
                                 {
-                                    d.Delete();
+                                    d.Delete(true);
                                 }
                                 catch (UnauthorizedAccessException uae)
                                 {
-                                    addMessage("Permission denied deleting " + uae.Message);
-                                    logger.Error("Permission denied deleting " + uae.Message);
+                                    addMessage("Permission denied deleting: " + d.FullName + " " + uae.Message);
+                                    logger.Error("Permission denied deleting: " + d.FullName + " " + uae.Message);
                                 }
                                 catch (IOException)
                                 {
                                     logger.Error("Could not delete " + d.FullName);
                                     addMessage("Error deleting " + d.FullName);
+                                }
+                                catch (System.Security.SecurityException se)
+                                {
+                                    addMessage("Security Exception while deleting: " + d.FullName);
+                                    logger.Error("Security Exception: " + d.FullName + " " + se.Message);
+                                    continue;
                                 }
                             }
                         }
@@ -503,7 +567,19 @@ namespace WindowsFormsApplication1
                     //single file copy
                     else
                     {
-                        targetfile = new FileInfo(target.FullName + "\\" + fn);
+                        try { targetfile = new FileInfo(target.FullName + "\\" + fn); }
+                        catch (PathTooLongException ptle)
+                        {
+                            addMessage("The source path is too long: " + target.FullName + "\\" + fn);
+                            logger.Error("Path too long: " + target.FullName + "\\" + fn + ptle.Message);
+                            continue;
+                        }
+                        catch (Exception ex)
+                        {
+                            addMessage("Exception getting file info: " + target.FullName + "\\" + fn + " " + ex.Message);
+                            logger.Error("Exception getting file info");
+                            continue;
+                        }
                         if (targetfile.Exists)
                         {
                             //check if destination is newer
@@ -514,8 +590,20 @@ namespace WindowsFormsApplication1
                                 continue;
                             }
                         }
-                        
-                        sourcefile = new FileInfo(sd + "\\" + fn);
+
+                        try { sourcefile = new FileInfo(sd + "\\" + fn); }
+                        catch (PathTooLongException ptle)
+                        {
+                            addMessage("The destination path is too long: " + sd + "\\" + fn);
+                            logger.Error("Path too long: " + sd + "\\" + fn + ptle.Message);
+                            continue;
+                        }
+                        catch (Exception ex)
+                        {
+                            addMessage("Exception getting file info: " + sd + "\\" + fn + " " + ex.Message);
+                            logger.Error("Exception getting file info");
+                            continue;
+                        }
                         if (!sourcefile.Exists)
                         {
                             addMessage("File does not exist: " + sourcefile.FullName);
@@ -537,6 +625,12 @@ namespace WindowsFormsApplication1
                             logger.Error("Exception: " + targetfile.FullName +" "+ a.Message);
                             continue;
                         }
+                        catch (PathTooLongException ptle)
+                        {
+                            addMessage("Cannot Copy (path would be too long): " + targetfile.FullName + " " + ptle.Message);
+                            logger.Error("Cannot Copy. Path too long: " + targetfile.FullName + " " + ptle.Message);
+                            continue;
+                        }
                         moved++;
                         bytesmoved += sourcefile.Length;
                         logger.Info("Copied file to " + targetfile.FullName + " - (" + size + " KB)");
@@ -553,10 +647,26 @@ namespace WindowsFormsApplication1
                                 addMessage("Permission denied deleting " + sourcefile.FullName + " " + uae.Message);
                                 logger.Error("Permission denied deleting " + sourcefile.FullName);
                             }
+                            catch (IOException)
+                            {
+                                logger.Error("Could not delete " + sourcefile.FullName);
+                                addMessage("Error deleting " + sourcefile.FullName);
+                            }
+                            catch (System.Security.SecurityException se)
+                            {
+                                addMessage("Security Exception while deleting: " + sourcefile.FullName);
+                                logger.Error("Security Exception: " + sourcefile.FullName + " " + se.Message);                            
+                            }
                         }
                         if (createshortcut)
                         {
-                            MyShortcut = (IWshRuntimeLibrary.IWshShortcut)MyShell.CreateShortcut(sourcefile.FullName + ".lnk");
+                            try { MyShortcut = (IWshRuntimeLibrary.IWshShortcut)MyShell.CreateShortcut(sourcefile.FullName + ".lnk"); }
+                            catch (PathTooLongException ptle)
+                            {
+                                addMessage("Cannot Create Shortcut (path would be too long): " + sourcefile.FullName + ".lnk");
+                                logger.Error("Cannot Create Shortcut. Path too long: " + sourcefile.FullName + ".lnk "+ptle.Message);
+                                continue;
+                            }
                             MyShortcut.TargetPath = targetfile.FullName;
                             try
                             {
@@ -597,7 +707,7 @@ namespace WindowsFormsApplication1
         private void buttonCSV_Click(object sender, EventArgs e)
         {
             FileDialog CSVBrowser = new SaveFileDialog();
-            CSVBrowser.FileName=System.DateTime.Now.ToOADate() + "_HyperFileMove";
+            CSVBrowser.FileName=System.DateTime.Now.ToShortDateString() + "_HyperFileMove";
             CSVBrowser.DefaultExt = "csv";
             if (CSVBrowser.ShowDialog() == DialogResult.OK) 
             {
@@ -760,7 +870,8 @@ namespace WindowsFormsApplication1
                 result.Append(String.Format("\"{0}\"", columnValue(i)));
             }
             result.AppendLine();
-        }            
+        }
+
     }  
 }
     
